@@ -435,6 +435,21 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   replicaset.apps/mysql-database-68f44c5fc5          1         1         1       49m
   replicaset.apps/wpblog-wordpress-5b94cb88          1         1         0       97s
   ```
+  
+  There are also other kubernetes objects created such as secrets:
+  ```
+  kubectl get secrets
+  ```
+  Output
+  ```
+  NAME                                   TYPE                                  DATA   AGE
+  default-token-82xpl                    kubernetes.io/service-account-token   3      74d
+  mysql-database                         Opaque                                2      45m
+  sh.helm.release.v1.mysql-database.v1   helm.sh/release.v1                    1      45m
+  sh.helm.release.v1.wpblog.v1           helm.sh/release.v1                    1      5m46s
+  wpblog-externaldb                      Opaque                                1      5m46s
+  wpblog-wordpress                       Opaque                                1      5m46s
+  ```
   Then, let's get the open Node port on our host machine.
   ```
   kubectl get services
