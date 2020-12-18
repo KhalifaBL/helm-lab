@@ -261,9 +261,11 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   ```
   mkdir myblog-settings; cd myblog-settings
   ```
+  Then, create an file with the config below. 
   ```
   vi values.yaml
   ```
+  Feel free to change your information, also do not forget to change the wordpressPassword to the one you used previously and the mysql_server_ip too.
   ```
   ## Blog/Site Info
   wordpressUsername: sammy
@@ -288,7 +290,9 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
 
 6. Launch WordPress
 
-  Now that we have all settings in place, it is time to execute helm to install WordPress. The following command tells helm to install the most recent stable release of the WordPress chart under the name myblog, using values.yaml as configuration file:
+  Now that we have all settings in place, it is time to execute helm to install WordPress. 
+  
+  The following command tells helm to install the most recent stable release of the WordPress chart under the name myblog, using values.yaml as configuration file:
   ```
   helm install myblog -- set persistence.enabled=false -f values.yaml stable/wordpress  
   ```
@@ -309,7 +313,7 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   ```
   You should get a page like this
   <img src="images/1.png" width="1200" height="1200" /> 
-
+  Congratulations! You've setup a WordPress/MySQL server using Helm.
   </xmp>
   <!-- <script src="http://cdn.ztx.io/strapdown/strapdown.min.js"></script> -->
   <script src="strapdown/strapdown.min.js"></script>
