@@ -178,6 +178,74 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   mysql-database-5bb86bb876-8h955          1/1     Running            0          158m    10.32.0.10   worker-node1    
   ```
   Save this IP address of the mysql-database pod, we will need it later on.
+
+  There are also other kubernetes objects created such as configmap and secrets:
+  ```
+  kubectl get configmaps
+  ```
+  Output
+  ```
+  NAME                     DATA   AGE
+  mysql-database-test      1      41m
+  ```
+  ```
+  kubectl describe configmaps mysql-database-test
+  ```
+  ```
+  Name:         mysql-database-test
+  Namespace:    default
+  Labels:       app=mysql-database
+                app.kubernetes.io/managed-by=Helm
+                chart=mysql-1.6.9
+                heritage=Helm
+                release=mysql-database
+  Annotations:  meta.helm.sh/release-name: mysql-database
+                meta.helm.sh/release-namespace: default
+  
+  Data
+  ====
+  run.sh:
+  ----
+  @test "Testing MySQL Connection" {
+    mysql --host=mysql-database --port=3306 -u root -ptoor
+  }
+  Events:  <none>
+  ```
+  As you can see in the description, it says managed by helm.
+
+  Now, let's check secrets
+  ```
+  kubectl get secrets
+  ```
+  ```
+  NAME                                   TYPE                                  DATA   AGE
+  default-token-82xpl                    kubernetes.io/service-account-token   3      74d
+  mysql-database                         Opaque                                2      45m
+  sh.helm.release.v1.mysql-database.v1   helm.sh/release.v1                    1      45m
+  ```
+  ```
+  kubectl describe mysql-database  
+  ```
+  ```
+  Name:         mysql-database
+  Namespace:    default
+  Labels:       app=mysql-database
+                app.kubernetes.io/managed-by=Helm
+                chart=mysql-1.6.9
+                heritage=Helm
+                release=mysql-database
+  Annotations:  meta.helm.sh/release-name: mysql-database
+                meta.helm.sh/release-namespace: default
+  
+  Type:  Opaque
+  
+  Data
+  ====
+  mysql-password:       10 bytes
+  mysql-root-password:  4 bytes
+  ```
+  As you can see in the description, it says managed by helm.
+
   
 5. Connect to the database via a mysql client
 
@@ -294,9 +362,80 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   
   The following command tells helm to install the most recent stable release of the WordPress chart under the name myblog, using values.yaml as configuration file:
   ```
-  helm install myblog -- set persistence.enabled=false -f values.yaml stable/wordpress  
+  helm install wpblog --set persistence.enabled=false -f values.yaml stable/wordpress  
   ```
-  Then, let's get the port open on our host machine
+  Output should be
+  ```
+  WARNING: This chart is deprecated
+  NAME: wpblog
+  LAST DEPLOYED: Fri Dec 18 03:11:28 2020
+  NAMESPACE: default
+  STATUS: deployed
+  REVISION: 1
+  TEST SUITE: None
+  NOTES:
+  This Helm chart is deprecated
+  
+  Given the `stable` deprecation timeline (https://github.com/helm/charts#deprecation-timeline), the Bitnami maintained Helm chart is now located at bitnami/charts (https://github.com/bitnami/charts/).
+  
+  The Bitnami repository is already included in the Hubs and we will continue providing the same cadence of updates, support, etc that we've been keeping here these years. Installation instructions are very similar, just adding the _bitnami_ repo and using it during the installation (`bitnami/<chart>` instead of `stable/<chart>`)
+  
+  bash
+  $ helm repo add bitnami https://charts.bitnami.com/bitnami
+  $ helm install my-release bitnami/<chart>           # Helm 3
+  $ helm install --name my-release bitnami/<chart>    # Helm 2
+
+  To update an exisiting _stable_ deployment with a chart hosted in the bitnami repository you can execute
+  
+  $ helm repo add bitnami https://charts.bitnami.com/bitnami
+  $ helm upgrade my-release bitnami/<chart>
+  
+  Issues and PRs related to the chart itself will be redirected to `bitnami/charts` GitHub repository. In the same way, we'll be happy to answer questions related to this migration process in this issue (https://github.com/helm/charts/issues/20969) created as a common place for discussion.
+  
+  ** Please be patient while the chart is being deployed **
+  
+  To access your WordPress site from outside the cluster follow the steps below:
+  
+  1. Get the WordPress URL by running these commands:
+  
+    NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+          Watch the status with: 'kubectl get svc --namespace default -w wpblog-wordpress'
+  
+     export SERVICE_IP=$(kubectl get svc --namespace default wpblog-wordpress --template "{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}")
+     echo "WordPress URL: http://$SERVICE_IP/"
+     echo "WordPress Admin URL: http://$SERVICE_IP/admin"
+  
+  2. Open a browser and access WordPress using the obtained URL.
+  
+  3. Login with the following credentials below to see your blog:
+  
+    echo Username: sammy
+    echo Password: $(kubectl get secret --namespace default wpblog-wordpress -o jsonpath="{.data.wordpress-password}" | base64 --decode)
+  ```
+  Now, let's check what k8s objects have been created.
+  ```
+  kubectl get all
+  ```
+  Output
+  ```
+  NAME                                         READY   STATUS              RESTARTS   AGE
+  pod/mysql-client                             1/1     Running             1          43m
+  pod/mysql-database-68f44c5fc5-khzcm          1/1     Running             0          49m
+  pod/wpblog-wordpress-5b94cb88-q7vrl          1/1     Running             0          96s
+  
+  NAME                            TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
+  service/mysql-database          ClusterIP      10.100.66.73     <none>        3306/TCP                     49m
+  service/wpblog-wordpress        LoadBalancer   10.96.91.138     <pending>     80:32577/TCP,443:30704/TCP   97s
+  
+  NAME                                    READY   UP-TO-DATE   AVAILABLE   AGE
+  deployment.apps/mysql-database          1/1     1            1           49m
+  deployment.apps/wpblog-wordpress        0/1     1            0           97s
+  
+  NAME                                               DESIRED   CURRENT   READY   AGE
+  replicaset.apps/mysql-database-68f44c5fc5          1         1         1       49m
+  replicaset.apps/wpblog-wordpress-5b94cb88          1         1         0       97s
+  ```
+  Then, let's get the open Node port on our host machine.
   ```
   kubectl get services
   ```
@@ -304,7 +443,7 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   ```
   NAME                    TYPE           CLUSTER-IP       EXTERNAL-IP   PORT(S)                      AGE
   kubernetes              ClusterIP      10.96.0.1        <none>        443/TCP                      12d
-  myfirstblog-wordpress   LoadBalancer   10.110.14.44     <pending>     80:30171/TCP,443:32382/TCP   27s
+  wpblog-wordpress        LoadBalancer   10.110.14.44     <pending>     80:30171/TCP,443:32382/TCP   27s
   mysql                   ClusterIP      10.97.61.196     <none>        3306/TCP                     63m
   ```
   Access your wordpress page at 
