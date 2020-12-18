@@ -10,14 +10,13 @@
 <xmp theme="superhero" style="display:none;" toc="true">
 
 
-In this exercice, you will learn how to configure a mysql database and a wordpress website using kubernetes helm.
+In this exercice, you will learn how to install and configure a mysql database and a wordpress website using kubernetes helm.
 
 
 In simple terms, Helm is a package manager for Kubernetes. Helm is the K8s equivalent of yum or apt. Helm deploys charts, which you can think of as a packaged application. 
 
 It is a collection of all your versioned, pre-configured application resources which can be deployed as one unit. 
 
-You can then deploy another version of the chart with a different set of configuration.
 
 
 #Outcomes
@@ -70,18 +69,19 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
    ```
    helm repo update 
    ```
-    Check that it's successfully added
+   Check that it's successfully added
    ```
-   helm3 repo list
+   helm repo list
    ```
+   Output should be
    ```
-  NAME        	URL                                
-  stable      	https://charts.helm.sh/stable  
-  ```
+   NAME        	URL                                
+   stable      	https://charts.helm.sh/stable  
+   ```
 3. Search for Charts
     
-   A Chart is a collection of files to deploy an application. There is a good starting repo available on https://github.com/
-   kubernetes/charts/tree/master/stable, provided by vendors, or you can make your own. Search the current Charts in
+   A Chart is a collection of files to deploy an application. There is a good starting repo available on 
+   https://github.com/kubernetes/charts/tree/master/stable, provided by vendors, or you can make your own. Search the current Charts in
    the Helm Hub or an instance of Monocular for available stable databases. Repos change often, so the following output
    may be different from what you see. 
    
@@ -90,25 +90,70 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
    ```
    ```
    URL                                               	CHART VERSION	APP VERSION 	DESCRIPTION                                       
-   https://hub.helm.sh/charts/bitnami/mysql          	8.2.3        	8.0.22      	Chart to create a Highly available MySQL cluster  
-   https://hub.helm.sh/charts/t3n/mysql              	0.1.0        	8.0.22      	Fast, reliable, scalable, and easy to use open-...
+   https://hub.helm.sh/charts/bitnami/mysql          	8.2.3        	8.0.22      	Chart to create a HA MySQL cluster  
+   https://hub.helm.sh/charts/t3n/mysql              	0.1.0        	8.0.22      	Fast, reliable, scalable, and easy 
+   .
+   .
    https://hub.helm.sh/charts/choerodon/mysql        	0.1.4        	0.1.4       	mysql for Choerodon https
   ```
 4. Install MySQL database 
   
-  All we need to do is to run this command
+  In this section you will learn how to install and setup mysql in kubernetes cluster using helm.
+  
+  As you can notice, there are a list of parameters passed to "helm install" command. These parameters allow us to customize our solution before even installing it.
+  
+  For example, we've chosen a root password for MySQL using the variable "mysqlRootPassword". To keep things simple, we've chosen to disable persistence storage for the database.
+  
   ```
   helm install mysql-database --set mysqlRootPassword=toor,persistence.enabled=false stable/mysql
   ```
-  As you can notice, there are a list of parameters passed to "helm install" command. 
-  You can check the entire list of our variables on this link
+  Output should be something like this
+  ```
+  WARNING: This chart is deprecated
+  NAME: mysql-database
+  LAST DEPLOYED: Fri Dec 18 02:23:09 2020
+  NAMESPACE: default
+  STATUS: deployed
+  REVISION: 1
+  NOTES:
+  MySQL can be accessed via port 3306 on the following DNS name from within your cluster:
+  mysql-database.default.svc.cluster.local
+  
+  To get your root password run:
+  
+      MYSQL_ROOT_PASSWORD=$(kubectl get secret --namespace default mysql-database -o jsonpath="{.data.mysql-root-password}" | base64 --decode; echo)
+  
+  To connect to your database:
+  
+  1. Run an Ubuntu pod that you can use as a client:
+  
+      kubectl run -i --tty ubuntu --image=ubuntu:16.04 --restart=Never -- bash -il
+  
+  2. Install the mysql client:
+  
+      $ apt-get update && apt-get install mysql-client -y
+  
+  3. Connect using the mysql cli, then provide your password:
+      $ mysql -h mysql-database -p
+  
+  To connect to your database directly from outside the K8s cluster:
+      MYSQL_HOST=127.0.0.1
+      MYSQL_PORT=3306
+  
+      # Execute the following command to route the connection:
+      kubectl port-forward svc/mysql-database 3306
+  
+      mysql -h ${MYSQL_HOST} -P${MYSQL_PORT} -u root -p${MYSQL_ROOT_PASSWORD}
+  ```
+  You can check the entire list of available variables  on the chart's link on github:
   ```
   https://github.com/helm/charts/tree/master/stable/wordpress
   ```
-  We can check all the created objects by Helm using this command.
+  Now, let's check what k8s objects have been created.
   ```
   kubectl get all
   ```
+  Output
   ```
   NAME                                         READY   STATUS             RESTARTS   AGE
   pod/mysql-database-5bb86bb876-8h955          1/1     Running            0          3h15m
@@ -123,28 +168,35 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   NAME                                               DESIRED   CURRENT   READY   AGE
   replicaset.apps/mysql-helm-5bb86bb876              1         1         1       3h15m
   ```
-  Now, let's get the exact ip address of the pod running the mysql database
+  Then, let's get the exact ip address of the pod running the mysql database
   ```
-  Kubectl get pods -o wide
+  kubectl get pods -o wide
   ```
+  Output
   ```
   NAME                                     READY   STATUS             RESTARTS   AGE     IP           NODE           
   mysql-database-5bb86bb876-8h955          1/1     Running            0          158m    10.32.0.10   worker-node1    
   ```
-  Save this IP address of the mysql-database pod given by the command kubect get pods.
+  Save this IP address of the mysql-database pod, we will need it later on.
   
 5. Connect to the database via a mysql client
 
-  Now,  we will use a mysql client in order to connect to our previously created database.
+  Now, we will use a mysql client in order to connect to our previously created database.
   
-  We can simply run this command:
+  Let's create a mysql client using this command, remember to change the ip address to the one you found previously.
   ```
-  kubectl run -it --image=mysql  mysql-client -- mysql -h10.32.0.10 -P3306 -ptoor
+  kubectl run -it --image=mysql  mysql-client -- mysql -h<10.32.0.10> -P3306 -ptoor
   ```
-  Type 
+  Output
+  ```
+  If you don't see a command prompt, try pressing enter.
+
+  ```
+  In order to check the list of avaialable databases, start typing this command:
   ```
   show databases;
   ```
+  Output
   ```
   mysql> show databases ;
   +--------------------+
@@ -161,15 +213,25 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
   ```
   CREATE DATABASE wordpress;
   ```
-  Now, let’s create a dedicated MySQL user for this database:
+  Output
+  ```
+  Query OK, 1 row affected (0.00 sec)
+  ```
+  Now, let’s create a dedicated MySQL user for this database, feel free to choose a different password:
   ```
   CREATE USER wordpress_user IDENTIFIED BY 'password';
   ``` 
+  ```
+  Query OK, 0 rows affected (0.00 sec)
+  ```
   The user wordpress_user was created, but it doesn’t have any access permissions yet. 
   
   The following command will give this user admin access (all privileges) to the wordpress database from both local and external networks:
   ```
   GRANT ALL PRIVILEGES ON wordpress.* TO wordpress_user@'%';
+  ```
+  ```
+  Query OK, 0 rows affected (0.02 sec)
   ```
   Now you can exit the MySQL client with:
   ```
@@ -188,11 +250,13 @@ To fully grasp helm, there are 3 concepts we need to get familiar with:
 
   Now that we have the necessary information to connect to the MySQL database, we can go ahead and install WordPress using Helm.
 
-  By default, the WordPress chart installs MariaDB on a separate pod inside the cluster and uses it as the WordPress database. We want to disable this behavior and configure WordPress to use an external MySQL database. This and other configuration options (such as the default WordPress admin user and password) can be set at installation time, either via command-line parameters or via a separate YAML configuration file.
+  By default, the WordPress chart installs MariaDB on a separate pod inside the cluster and uses it as the WordPress database. We want to disable this behavior and configure WordPress to use an external MySQL database. 
+  
+  This and other configuration options (such as the default WordPress admin user and password) can be set at installation time, either via command-line parameters or via a separate YAML configuration file.
   
   In order to keep things organized and easily extendable, we are going to use a configuration file.
   
-  From your local machine or development server, create a new directory for your project settings and navigate into it:
+  From your local machine, create a new directory for your project settings and navigate into it:
   
   ```
   mkdir myblog-settings; cd myblog-settings
